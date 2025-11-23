@@ -38,6 +38,8 @@
   .modal .pred{width:96px;text-align:center}
   .modal img{width:72px;height:72px;object-fit:contain;border-radius:6px}
   .used-badge{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#04263b}
+  /* small modal tweaks */
+  .modal .small.muted{color:var(--muted)}
     </style>
   </head>
   <body>
@@ -112,6 +114,26 @@
     </div>
 
     <!-- Opponent prediction modal removed -->
+
+    <!-- Action modal: appear when clicking a hero to Pick or Ban -->
+    <div id="actionModal" class="modal-backdrop" style="display:none">
+      <div class="modal">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong id="actionHeroName">Hero</strong>
+          <button id="closeActionModal" style="background:#ef4444;color:#04263b;border-radius:6px;padding:6px 8px;border:none">Close</button>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:12px">
+          <div id="actionHeroImgWrapper" style="width:96px;height:96px;display:flex;align-items:center;justify-content:center"></div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-left:8px">
+            <div class="small muted">เลือกการกระทำสำหรับฮีโร่ที่เลือก</div>
+            <div style="display:flex;gap:8px">
+              <button id="actionPick" style="background:#60a5fa;color:#04263b;padding:8px 12px;border-radius:8px;border:none">Pick</button>
+              <button id="actionBan" style="background:#ef4444;color:#04263b;padding:8px 12px;border-radius:8px;border:none">Ban</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script>
       // Minimal, self-contained draft helper
@@ -455,37 +477,62 @@
 
           // disable selection when hero is used in earlier games in global mode
           // check previous usage separately per team
-          const usedInPrevA = state.usedByTeam && state.usedByTeam.A && state.usedByTeam.A.has(h.id);
-          const usedInPrevB = state.usedByTeam && state.usedByTeam.B && state.usedByTeam.B.has(h.id);
           const curGame = state.games[state.currentGame-1] || {picks:{A:[],B:[]}, bans:{A:[],B:[]}};
           const usedInThis = (curGame.picks.A.includes(h.id) || curGame.picks.B.includes(h.id) || curGame.bans.A.includes(h.id) || curGame.bans.B.includes(h.id));
-          // Determine disabling rules:
-          // - If global mode off: allow selection
-          // - If global mode on: heroes used in previous games are disabled only for the same team that used them previously
           const turn = byId('turnSelect').value;
           let disabled = false;
-          if (state.mode === 'global' && !usedInThis){
-            if (turn === 'A' && usedInPrevA) disabled = true;
-            if (turn === 'B' && usedInPrevB) disabled = true;
+          let badgeLabel = '';
+          let badgeBg = 'var(--muted)';
+          let titleText = '';
+          if (usedInThis) {
+            disabled = true;
+            if (curGame.picks.A.includes(h.id)) { badgeLabel = 'P A'; badgeBg = 'var(--teamA)'; titleText = 'ถูก pick โดย Team A ในเกมนี้'; }
+            else if (curGame.picks.B.includes(h.id)) { badgeLabel = 'P B'; badgeBg = 'var(--teamB)'; titleText = 'ถูก pick โดย Team B ในเกมนี้'; }
+            else if (curGame.bans.A.includes(h.id)) { badgeLabel = 'B A'; badgeBg = 'var(--teamA)'; titleText = 'ถูก ban โดย Team A ในเกมนี้'; }
+            else if (curGame.bans.B.includes(h.id)) { badgeLabel = 'B B'; badgeBg = 'var(--teamB)'; titleText = 'ถูก ban โดย Team B ในเกมนี้'; }
+          } else if (state.mode === 'global') {
+            const usedInPrevA = state.usedByTeam.A.has(h.id);
+            const usedInPrevB = state.usedByTeam.B.has(h.id);
+            if ((turn === 'A' && usedInPrevA) || (turn === 'B' && usedInPrevB)) {
+              disabled = true;
+              if (usedInPrevA && !usedInPrevB) { badgeLabel = 'A'; badgeBg = 'var(--teamA)'; }
+              else if (usedInPrevB && !usedInPrevA) { badgeLabel = 'B'; badgeBg = 'var(--teamB)'; }
+              else { badgeLabel = 'A/B'; badgeBg = 'var(--muted)'; }
+              titleText = 'ถูกใช้ในเกมก่อนหน้า (global)';
+            }
           }
           if (disabled){ 
-            el.style.opacity = '0.35'; el.style.cursor = 'not-allowed'; el.title = 'ถูกใช้ในเกมก่อนหน้า (global)';
-            // show which team previously picked this hero
-            let badgeLabel = '';
-            if (usedInPrevA) badgeLabel = 'A';
-            if (usedInPrevB) badgeLabel = badgeLabel ? (badgeLabel + '/B') : 'B';
-            const badge = document.createElement('div'); badge.className = 'used-badge'; badge.textContent = badgeLabel;
-            // color by team (if both, use muted)
-            if (usedInPrevA && !usedInPrevB) badge.style.background = 'var(--teamA)';
-            else if (usedInPrevB && !usedInPrevA) badge.style.background = 'var(--teamB)';
-            else badge.style.background = 'var(--muted)';
-            el.appendChild(badge);
-          } else { el.onclick = ()=>{ lastSelected = h.id; if (selName) selName.textContent = h.name; renderHeroGrid(); }; }
-          // append badge
-          el.appendChild(badge);
+            el.style.opacity = '0.35'; 
+            el.style.cursor = 'not-allowed'; 
+            el.title = titleText;
+            if (badgeLabel) {
+              const badgeUsed = document.createElement('div'); 
+              badgeUsed.className = 'used-badge'; 
+              badgeUsed.textContent = badgeLabel;
+              badgeUsed.style.background = badgeBg;
+              el.appendChild(badgeUsed);
+            }
+          } else {
+            el.onclick = ()=>{ showActionModal(h.id); };
+          }
           heroContainer.appendChild(el);
         });
       }
+
+          // Action modal logic
+          let actionModalHero = null;
+          function showActionModal(heroId){
+            actionModalHero = heroId;
+            const h = HEROES.find(x=>x.id===heroId) || {name:heroId,img:''};
+            const nameEl = byId('actionHeroName'); if (nameEl) nameEl.textContent = h.name;
+            const wrap = byId('actionHeroImgWrapper'); if (wrap){ wrap.innerHTML=''; if (h.img){ const img=document.createElement('img'); img.src=h.img; img.alt=h.name; img.style.width='88px'; img.style.height='88px'; img.style.objectFit='contain'; img.onerror=()=>img.remove(); wrap.appendChild(img);} }
+            const modal = byId('actionModal'); if (modal) modal.style.display = 'flex';
+          }
+          function hideActionModal(){ const m = byId('actionModal'); if (m) m.style.display = 'none'; actionModalHero = null; }
+          const closeAction = byId('closeActionModal'); if (closeAction) closeAction.onclick = hideActionModal;
+          const actionPick = byId('actionPick'); if (actionPick) actionPick.onclick = ()=>{ if (!actionModalHero) return; lastSelected = actionModalHero; doPickOrBan('pick'); hideActionModal(); };
+          const actionBan = byId('actionBan'); if (actionBan) actionBan.onclick = ()=>{ if (!actionModalHero) return; lastSelected = actionModalHero; doPickOrBan('ban'); hideActionModal(); };
+          const actionModalWrap = byId('actionModal'); if (actionModalWrap) actionModalWrap.addEventListener('click', (ev)=>{ if (ev.target === ev.currentTarget) hideActionModal(); });
 
       function doPickOrBan(type){
         if (!lastSelected) return alert('ยังไม่ได้เลือกฮีโร่');
