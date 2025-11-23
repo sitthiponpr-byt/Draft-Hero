@@ -5,24 +5,38 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Draft Helper — Local</title>
     <style>
-      :root{--bg:#0f172a;--card:#0b1220;--muted:#9ca3af;--accent:#60a5fa}
+  :root{--bg:#0f172a;--card:#0b1220;--muted:#9ca3af;--accent:#60a5fa;--teamA:#60a5fa;--teamB:#a3e635}
       body{font-family:Segoe UI, Roboto, Arial, sans-serif; background:linear-gradient(180deg,#071029 0%, #071b2b 100%); color:#e6eef8; margin:0; padding:28px}
       .container{max-width:1100px;margin:0 auto}
       header{display:flex;align-items:center;gap:16px}
       h1{margin:0;font-size:20px}
-      .layout{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:18px}
+  .layout{display:block;margin-top:18px}
       .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
       .hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
-  .hero{padding:10px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);cursor:pointer;border:1px solid rgba(255,255,255,0.02);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px}
+    .hero{padding:10px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);cursor:pointer;border:1px solid rgba(255,255,255,0.02);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px}
   .hero.selected{box-shadow:0 6px 18px rgba(96,165,250,0.12);transform:translateY(-2px)}
   .hero img{width:64px;height:64px;object-fit:contain;border-radius:6px;display:block}
+  .hero .heroName{font-weight:700;font-size:14px;color:#e6eef8}
+  .role-badge{margin-top:6px;padding:4px 8px;border-radius:999px;font-size:11px;color:#032;display:inline-block}
       .controls{display:flex;gap:8px;margin-top:10px}
       button{background:var(--accent);border:none;padding:8px 10px;border-radius:8px;color:#04263b;cursor:pointer;font-weight:600}
       .muted{color:var(--muted);font-size:13px}
       .slots{display:flex;gap:8px;margin-top:8px}
       .slot{flex:1;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);text-align:center}
+  .teamCard strong{font-size:16px}
+  .teamCard .small{color:var(--muted)}
+  .slot .small{color:var(--muted);font-size:13px}
+  .slot img{width:48px;height:48px}
+  /* larger header */
+  h1{font-size:22px}
       textarea{width:100%;height:90px;border-radius:6px;background:transparent;border:1px dashed rgba(255,255,255,0.04);color:inherit;padding:8px}
       .small{font-size:13px;color:var(--muted)}
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:9999}
+  .modal{background:var(--card);padding:16px;border-radius:10px;max-width:760px;width:92%;border:1px solid rgba(255,255,255,0.04)}
+  .modal .grid{display:flex;gap:8px;flex-wrap:wrap}
+  .modal .pred{width:96px;text-align:center}
+  .modal img{width:72px;height:72px;object-fit:contain;border-radius:6px}
     </style>
   </head>
   <body>
@@ -30,7 +44,7 @@
       <header style="display:flex;justify-content:space-between;align-items:center;gap:12px">
         <div>
           <h1>Draft Helper </h1>
-          <div class="small muted">Pick / Ban, Undo, Save/Load และ Export/Import JSON</div>
+          <div class="small muted">Pick / Ban</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <label class="small muted">Game</label>
@@ -55,11 +69,6 @@
             </div>
           </div>
 
-          <div style="margin-top:12px" class="small muted">Team A picks</div>
-          <div class="slots" id="teamA_picks"></div>
-          <div style="margin-top:8px" class="small muted">Team B picks</div>
-          <div class="slots" id="teamB_picks"></div>
-
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
             <button id="pickBtn">Pick</button>
             <button id="banBtn">Ban</button>
@@ -76,25 +85,40 @@
             </select>
             <input id="search" placeholder="ค้นหาฮีโร่..." style="margin-left:auto;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit" />
           </div>
+          
+          <!-- Top teams overview: picks + bans for each team -->
+          <div class="teamsRow" style="display:flex;gap:10px;margin-top:12px">
+            <div class="card teamCard" style="flex:1">
+              <div><strong style="color:var(--accent)">Team A</strong></div>
+              <div class="small muted" style="margin-top:6px">Picks</div>
+              <div class="slots" id="teamA_picks"></div>
+              <div class="small muted" style="margin-top:6px">Bans</div>
+              <div class="slots" id="teamA_bans" style="margin-top:6px"></div>
+            </div>
+            <div class="card teamCard" style="flex:1">
+              <div><strong style="color:var(--teamB)">Team B</strong></div>
+              <div class="small muted" style="margin-top:6px">Picks</div>
+              <div class="slots" id="teamB_picks"></div>
+              <div class="small muted" style="margin-top:6px">Bans</div>
+              <div class="slots" id="teamB_bans" style="margin-top:6px"></div>
+            </div>
+          </div>
 
           <div style="margin-top:12px" id="heroContainer" class="hero-grid card"></div>
         </main>
+        
+      </div>
+    </div>
 
-        <aside class="card">
-          <div><strong>State</strong></div>
-          <div class="small muted">Current selection: <span id="selName">—</span></div>
-          <div style="margin-top:8px"><strong>Ban lists (demo)</strong></div>
-          <div id="teamA_bans" class="slots" style="margin-top:6px"></div>
-          <div id="teamB_bans" class="slots" style="margin-top:6px"></div>
-
-          <div style="margin-top:12px"><strong>Save / Load</strong></div>
-          <div class="small muted">Local storage:</div>
-          <div style="display:flex;gap:8px;margin-top:6px"><button id="saveLocal">Save</button><button id="loadLocal">Load</button></div>
-
-          <div style="margin-top:12px"><strong>Export / Import</strong></div>
-          <textarea id="jsonArea" placeholder="Exported JSON" ></textarea>
-          <div style="display:flex;gap:8px;margin-top:6px"><button id="exportJson">Export</button><button id="importJson">Import</button></div>
-        </aside>
+    <!-- Opponent prediction modal -->
+    <div id="oppModal" class="modal-backdrop" style="display:none">
+      <div class="modal">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>Opponent likely picks</strong>
+          <button id="closeOppModal" style="background:#ef4444;color:#04263b;border-radius:6px;padding:6px 8px;border:none">Close</button>
+        </div>
+        <div class="small muted" style="margin-top:6px">ฮีโร่จาก pool ของฝ่ายตรงข้ามที่ยังเหลืออยู่ (ไม่รวมตัวที่ถูกเลือก/ban แล้ว)</div>
+        <div id="oppPredGrid" class="grid" style="margin-top:8px"></div>
       </div>
     </div>
 
@@ -234,25 +258,37 @@
         seriesStarted: false,
         history: [],         // {type, team, hero, game}
         usedGlobal: new Set(),
-        mode: 'normal'       // 'normal' or 'global'
+        mode: 'normal',      // 'normal' or 'global'
+        opponentPool: []     // array of opponent hero ids (max 5)
       };
 
       // role mapping (expanded). If a hero is missing here, it will be 'Other'
-      const ROLE_MAP = {
-        'Violet':'Marksman','Yorn':'Marksman','Slimz':'Marksman','Capheny':'Marksman','Valhein':'Marksman','Zip':'Marksman','Fennik':'Marksman','Wisp':'Marksman','Max':'Marksman','Capheny':'Marksman',
-        'Krixi':'Mage','Aleister':'Mage','Lauriel':'Mage','Kahlii':'Mage','Ilumia':'Mage','Charlotte':'Mage','Raz':'Assassin',
-        'Murad':'Assassin','Nakroth':'Assassin','Zill':'Assassin','Airi':'Assassin','Quillen':'Assassin','Enzo':'Assassin','Mina':'Marksman','Iggy':'Marksman','Yena':'Assassin',
-        'Ormarr':'Warrior','Taara':'Warrior','Zephys':'Warrior','Lu_Bu':'Warrior','Ryoma':'Warrior','Florentino':'Warrior','Skud':'Warrior','Rourke':'Marksman',
+  const ROLE_MAP = {
+        'Violet':'Marksman','Yorn':'Marksman','Slimz':'Marksman','Capheny':'Marksman','Valhein':'Marksman','Zip':'Tank','Fennik':'Marksman','Wisp':'Marksman','Max':'Warrior','Capheny':'Marksman',
+        'Krixi':'Mage','Aleister':'Mage','Lauriel':'Mage','Kahlii':'Mage','Ilumia':'Mage','Charlotte':'Warrior','Raz':'Mage',
+        'Murad':'Assassin','Nakroth':'Assassin','Zill':'Assassin','Airi':'Warrior','Quillen':'Assassin','Enzo':'Assassin','Mina':'Tank','Iggy':'Mage','Yena':'Warrior',
+        'Ormarr':'Tank','Taara':'Warrior','Zephys':'Warrior','Lu_Bu':'Warrior','Ryoma':'Warrior','Florentino':'Warrior','Skud':'Warrior','Rourke':'Marksman',
         'Baldum':'Tank','Omen':'Tank','Volkath':'Warrior','Thane':'Tank','Gildur':'Support','Annette':'Support','Alice':'Support','TeeMee':'Support','Chaugnar':'Support',
-        'Bright':'Support','Valhein':'Marksman','Violet':'Marksman','Kriknak':'Assassin','TeeMee':'Support','DArcy':'Mage','Kahlii':'Mage','Sinestrea':'Mage','Goverra':'Tank',
+        'Bright':'Support','Valhein':'Marksman','Violet':'Marksman','Kriknak':'Assassin','TeeMee':'Support','DArcy':'Mage','Kahlii':'Mage','Sinestrea':'Mage','Goverra':'Mage',
         'Keera':'Assassin','Marja':'Mage','Stuart':'Marksman','Bolt_Baron':'Warrior','Billow':'Support','Liliana':'Mage','Aya':'Assassin','Tulen':'Mage','Toro':'Tank',
         'Cresht':'Tank','Riktor':'Tank','Rouie':'Support','Wonder_Woman':'Warrior','Sephera':'Support','Elsu':'Marksman','Lauriel':'Mage','Ming':'Mage','Thane':'Tank',
         'bneth':'Mage','Zuka':'Assassin','WuKong':'Assassin','Butterfly':'Assassin','Arduin':'Warrior','Annas':'Support','Biron':'Warrior','Mganga':'Mage','Helen':'Support',
-        'Erin':'Marksman','Errol':'Warrior','Bonnie':'Marksman','Airi':'Assassin','Lu_Bu':'Warrior','Laville':'Marksman','Maloch':'Warrior','Paine':'Marksman',
+        'Erin':'Marksman','Errol':'Warrior','Bonnie':'Mage','Airi':'Assassin','Lu_Bu':'Warrior','Laville':'Marksman','Maloch':'Warrior','Paine':'Marksman',
         'Preyta':'Mage','Ilumia':'Mage','Kaine':'Assassin','Veres':'Warrior','Aleister':'Mage','Krizzix':'Support','Lumburr':'Support','Veera':'Mage','Teeri':'Marksman',
         'Omega':'Assassin','Lorion':'Mage','Kahlii':'Mage','Diao_Chan':'Mage','Bijan':'Warrior','Arum':'Tank','Roxie':'Marksman','Slimz':'Marksman','The_Flash':'Assassin',
         'Allain':'Marksman','Amily':'Warrior','Xeniel':'Support','Tachi':'Warrior','Zanis':'Warrior','Celica':'Mage','Moren':'Marksman','Mortos':'Warrior','Astrid':'Marksman',
-        'Dextra':'Marksman','Wiro':'Assassin','Groth':'Warrior','Lindis':'Marksman','Jinna':'Mage','Ishar':'Mage','Roxie':'Marksman'
+        'Dextra':'Marksman','Wiro':'Tank','Groth':'Warrior','Lindis':'Marksman','Jinna':'Mage','Ishar':'Mage','Roxie':'Warrior'
+      };
+
+      // Colors for roles (inspired by drawban palette)
+      const ROLE_COLOR = {
+        'Marksman':'#60a5fa',
+        'Mage':'#a78bfa',
+        'Assassin':'#fb7185',
+        'Warrior':'#f59e0b',
+        'Tank':'#94a3b8',
+        'Support':'#34d399',
+        'Other':'#9ca3af'
       };
 
   let lastSelected = null;
@@ -260,7 +296,7 @@
       // DOM helpers
       const byId = id=>document.getElementById(id);
       const heroContainer = byId('heroContainer');
-      const selName = byId('selName');
+  const selName = byId('selName');
 
       function getRole(h){ return ROLE_MAP[h.id] || ROLE_MAP[h.name] || 'Other'; }
 
@@ -310,11 +346,14 @@
           }
 
           const nameDiv = document.createElement('div');
+          nameDiv.className = 'heroName';
           nameDiv.style.marginTop = '6px';
           nameDiv.textContent = h.name;
           // role badge
           const role = getRole(h);
-          const badge = document.createElement('div'); badge.textContent = role; badge.className='small muted'; badge.style.marginTop='4px'; badge.style.fontSize='11px';
+          const badge = document.createElement('div'); badge.textContent = role; badge.className='role-badge';
+          badge.style.marginTop='4px'; badge.style.fontSize='11px';
+          const c = ROLE_COLOR[role] || ROLE_COLOR['Other']; badge.style.background = c; badge.style.color = '#04263b';
 
           el.appendChild(imgWrap);
           el.appendChild(nameDiv);
@@ -338,7 +377,7 @@
             }
           }
           if (disabled){ el.style.opacity = '0.35'; el.style.cursor = 'not-allowed'; el.title = 'ถูกใช้ในเกมก่อนหน้า (global)'; }
-          else { el.onclick = ()=>{ lastSelected = h.id; selName.textContent = h.name; renderHeroGrid(); }; }
+          else { el.onclick = ()=>{ lastSelected = h.id; if (selName) selName.textContent = h.name; renderHeroGrid(); }; }
           // append badge
           el.appendChild(badge);
           heroContainer.appendChild(el);
@@ -368,7 +407,10 @@
   // recompute usedGlobal (heroes used in previous games)
         recomputeUsedGlobal();
 
-        lastSelected = null; selName.textContent='—'; renderState(); renderHeroGrid();
+        // if opponent picked, possibly show prediction modal for their next picks
+        if (team === 'B') showOpponentPredictIfNeeded();
+
+  lastSelected = null; if (selName) selName.textContent='—'; renderState(); renderHeroGrid();
         // if auto-next enabled and both teams reached 5 picks, advance game
         tryAutoAdvance();
       }
@@ -404,7 +446,9 @@
         const el = document.createElement('div'); el.className='slot';
         el.style.display='flex'; el.style.flexDirection='column'; el.style.alignItems='center'; el.style.justifyContent='center';
         const img = document.createElement('img'); img.src = h.img || ''; img.alt = h.name; img.style.width='56px'; img.style.height='56px'; img.style.objectFit='contain'; img.onerror = ()=>img.remove();
-        const nm = document.createElement('div'); nm.textContent = h.name; nm.style.fontSize='12px'; nm.style.marginTop='6px'; nm.className='small muted';
+        const nm = document.createElement('div'); nm.textContent = h.name; nm.style.fontSize='13px'; nm.style.marginTop='6px'; nm.className='small muted'; nm.style.fontWeight='700';
+        // color by role
+        const r = ROLE_MAP[h.id] || ROLE_MAP[h.name] || 'Other'; nm.style.color = ROLE_COLOR[r] || 'var(--muted)';
         if (h.img) el.appendChild(img);
         el.appendChild(nm);
         return el;
@@ -430,18 +474,19 @@
         state.games = Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}})); state.history=[]; state.usedGlobal = new Set(); renderState(); renderHeroGrid();
       };
 
-      byId('saveLocal').onclick = ()=>{
+      const saveLocalBtn = byId('saveLocal'); if (saveLocalBtn) saveLocalBtn.onclick = ()=>{
         const payload = {games:state.games, history:state.history};
         localStorage.setItem('draft_demo', JSON.stringify(payload)); alert('บันทึกลงเครื่องเรียบร้อย');
       };
 
-      byId('loadLocal').onclick = ()=>{
+      const loadLocalBtn = byId('loadLocal'); if (loadLocalBtn) loadLocalBtn.onclick = ()=>{
         const raw = localStorage.getItem('draft_demo'); if (!raw) return alert('ไม่พบข้อมูลใน localStorage');
         try{ const obj = JSON.parse(raw); state.games = obj.games || Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}})); state.history = obj.history || []; recomputeUsedGlobal(); renderState(); renderHeroGrid(); }catch(e){ alert('ข้อมูลไม่ถูกต้อง'); }
       };
 
-  byId('exportJson').onclick = ()=>{ byId('jsonArea').value = JSON.stringify({games:state.games,history:state.history}, null, 2); };
-  byId('importJson').onclick = ()=>{ try{ const obj = JSON.parse(byId('jsonArea').value); state.games = obj.games || state.games; state.history = obj.history || state.history; recomputeUsedGlobal(); renderState(); renderHeroGrid(); }catch(e){ alert('JSON ไม่ถูกต้อง'); } };
+      const exportJsonBtn = byId('exportJson'); const importJsonBtn = byId('importJson'); const jsonAreaEl = byId('jsonArea');
+      if (exportJsonBtn && jsonAreaEl) exportJsonBtn.onclick = ()=>{ jsonAreaEl.value = JSON.stringify({games:state.games,history:state.history}, null, 2); };
+      if (importJsonBtn && jsonAreaEl) importJsonBtn.onclick = ()=>{ try{ const obj = JSON.parse(jsonAreaEl.value); state.games = obj.games || state.games; state.history = obj.history || state.history; recomputeUsedGlobal(); renderState(); renderHeroGrid(); }catch(e){ alert('JSON ไม่ถูกต้อง'); } };
 
       // search input
       byId('search').oninput = ()=>renderHeroGrid();
@@ -469,6 +514,9 @@
 
         const chk = byId('modeGlobal'); chk.checked = (state.mode === 'global');
         chk.onchange = ()=>{ state.mode = chk.checked ? 'global' : 'normal'; recomputeUsedGlobal(); renderHeroGrid(); };
+
+        // load opponent pool and render related UI
+        loadOpponentPool(); renderOpponentSelect(); renderOpponentSlots();
 
         recomputeUsedGlobal();
       }
@@ -510,8 +558,77 @@
         });
         return rows.join('\n');
       }
-      const csvBtn = document.createElement('button'); csvBtn.textContent='Export CSV'; csvBtn.style.marginLeft='6px'; csvBtn.onclick = ()=>{ byId('jsonArea').value = exportCSV(); };
-      document.querySelector('aside.card').appendChild(csvBtn);
+  const csvBtn = document.createElement('button'); csvBtn.textContent='Export CSV'; csvBtn.style.marginLeft='6px'; csvBtn.onclick = ()=>{ const ja = byId('jsonArea'); if (ja) ja.value = exportCSV(); };
+  const asideEl = document.querySelector('aside.card'); if (asideEl) asideEl.appendChild(csvBtn);
+
+      // --- Opponent pool functions ---
+      function loadOpponentPool(){
+        try{
+          const raw = localStorage.getItem('opponent_pool'); if (!raw) { state.opponentPool = []; return; }
+          const arr = JSON.parse(raw); if (Array.isArray(arr)) state.opponentPool = arr.slice(0,5); else state.opponentPool = [];
+        }catch(e){ state.opponentPool = []; }
+      }
+
+      function renderOpponentSelect(){
+        const sel = byId('opponentSelect'); if (!sel) return;
+        sel.innerHTML='';
+        const empty = document.createElement('option'); empty.value=''; empty.textContent='-- เลือกฮีโร่ --'; sel.appendChild(empty);
+        HEROES.forEach(h=>{ const o=document.createElement('option'); o.value = h.id; o.textContent = h.name; sel.appendChild(o); });
+      }
+
+      function renderOpponentSlots(){
+        const cont = byId('opponentSlots'); if (!cont) return; cont.innerHTML='';
+        state.opponentPool.forEach(id=>{
+          const h = HEROES.find(x=>x.id===id) || {name:id,img:''};
+          const d = document.createElement('div'); d.style.display='flex'; d.style.flexDirection='column'; d.style.alignItems='center'; d.style.width='80px';
+          const img = document.createElement('img'); img.src = h.img || ''; img.alt=h.name; img.style.width='60px'; img.style.height='60px'; img.style.objectFit='contain'; img.onerror=()=>img.remove();
+          const nm = document.createElement('div'); nm.textContent = h.name; nm.style.fontSize='12px'; nm.style.marginTop='6px'; nm.className='small muted';
+          const rem = document.createElement('button'); rem.textContent='x'; rem.style.marginTop='6px'; rem.onclick = ()=>{ state.opponentPool = state.opponentPool.filter(x=>x!==id); renderOpponentSlots(); };
+          if (h.img) d.appendChild(img);
+          d.appendChild(nm); d.appendChild(rem); cont.appendChild(d);
+        });
+      }
+
+      // wire up opponent UI buttons (guard in case elements are missing)
+      const opponentAddBtn = byId('addOpponent'); if (opponentAddBtn) opponentAddBtn.onclick = ()=>{
+        const sel = byId('opponentSelect'); const id = sel ? sel.value : null; if (!id) return alert('โปรดเลือกฮีโร่');
+        if (state.opponentPool.includes(id)) return alert('ฮีโร่อยู่ใน pool แล้ว');
+        if (state.opponentPool.length >= 5) return alert('เกินจำนวนสูงสุด 5 ตัว');
+        state.opponentPool.push(id); renderOpponentSlots();
+      };
+      const opponentSaveBtn = byId('saveOpponent'); if (opponentSaveBtn) opponentSaveBtn.onclick = ()=>{ localStorage.setItem('opponent_pool', JSON.stringify(state.opponentPool)); alert('บันทึก pool เรียบร้อย'); };
+      const opponentClearBtn = byId('clearOpponent'); if (opponentClearBtn) opponentClearBtn.onclick = ()=>{ if (!confirm('ล้าง pool ฝ่ายตรงข้าม?')) return; state.opponentPool = []; localStorage.removeItem('opponent_pool'); renderOpponentSlots(); };
+
+      function showOppModal(ids){
+        const wrap = byId('oppPredGrid'); if (!wrap) return; wrap.innerHTML='';
+        if (!ids || ids.length===0){ wrap.innerHTML = '<div class="small muted">ไม่มีฮีโร่ที่เหลือจาก pool</div>'; }
+        else {
+          ids.forEach(id=>{
+            const h = HEROES.find(x=>x.id===id) || {name:id,img:''};
+            const p = document.createElement('div'); p.className='pred';
+            const img = document.createElement('img'); img.src = h.img || ''; img.alt = h.name; img.onerror = ()=>img.remove();
+            const nm = document.createElement('div'); nm.textContent = h.name; nm.className='small muted'; nm.style.marginTop='6px'; nm.style.fontSize='12px';
+            if (h.img) p.appendChild(img);
+            p.appendChild(nm);
+            wrap.appendChild(p);
+          });
+        }
+        const modal = byId('oppModal'); if (modal) modal.style.display = 'flex';
+      }
+
+      function hideOppModal(){ const m = byId('oppModal'); if (m) m.style.display='none'; }
+      const closeOpp = byId('closeOppModal'); if (closeOpp) closeOpp.onclick = hideOppModal;
+      const modalWrap = byId('oppModal'); if (modalWrap) modalWrap.addEventListener('click', (ev)=>{ if (ev.target === ev.currentTarget) hideOppModal(); });
+
+      function showOpponentPredictIfNeeded(){
+        const g = state.games[state.currentGame-1]; if (!g) return;
+        const cnt = g.picks.B.length;
+        if (cnt === 1 || cnt === 2){
+          const already = new Set([...g.picks.A, ...g.picks.B, ...g.bans.A, ...g.bans.B]);
+          const remain = state.opponentPool.filter(id=>!already.has(id));
+          showOppModal(remain);
+        }
+      }
 
       // init
       initGamesAndUI(); renderHeroGrid(); renderState();
