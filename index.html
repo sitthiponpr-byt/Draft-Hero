@@ -9,11 +9,11 @@
       body{font-family:Segoe UI, Roboto, Arial, sans-serif; background:linear-gradient(180deg,#071029 0%, #071b2b 100%); color:#e6eef8; margin:0; padding:28px}
       .container{max-width:1100px;margin:0 auto}
       header{display:flex;align-items:center;gap:16px}
-      h1{margin:0;font-size:20px}
+      h1{margin:0;font-size:28px;font-weight:800}
   .layout{display:block;margin-top:18px}
       .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
       .hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
-    .hero{padding:10px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);cursor:pointer;border:1px solid rgba(255,255,255,0.02);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px}
+    .hero{padding:10px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);cursor:pointer;border:1px solid rgba(255,255,255,0.02);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;position:relative}
   .hero.selected{box-shadow:0 6px 18px rgba(96,165,250,0.12);transform:translateY(-2px)}
   .hero img{width:64px;height:64px;object-fit:contain;border-radius:6px;display:block}
   .hero .heroName{font-weight:700;font-size:14px;color:#e6eef8}
@@ -28,7 +28,7 @@
   .slot .small{color:var(--muted);font-size:13px}
   .slot img{width:48px;height:48px}
   /* larger header */
-  h1{font-size:22px}
+  h1{font-size:28px;font-weight:800}
       textarea{width:100%;height:90px;border-radius:6px;background:transparent;border:1px dashed rgba(255,255,255,0.04);color:inherit;padding:8px}
       .small{font-size:13px;color:var(--muted)}
   /* modal */
@@ -37,6 +37,7 @@
   .modal .grid{display:flex;gap:8px;flex-wrap:wrap}
   .modal .pred{width:96px;text-align:center}
   .modal img{width:72px;height:72px;object-fit:contain;border-radius:6px}
+  .used-badge{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#04263b}
     </style>
   </head>
   <body>
@@ -90,17 +91,17 @@
           <div class="teamsRow" style="display:flex;gap:10px;margin-top:12px">
             <div class="card teamCard" style="flex:1">
               <div><strong style="color:var(--accent)">Team A</strong></div>
-              <div class="small muted" style="margin-top:6px">Picks</div>
-              <div class="slots" id="teamA_picks"></div>
               <div class="small muted" style="margin-top:6px">Bans</div>
               <div class="slots" id="teamA_bans" style="margin-top:6px"></div>
+              <div class="small muted" style="margin-top:6px">Picks</div>
+              <div class="slots" id="teamA_picks"></div>
             </div>
             <div class="card teamCard" style="flex:1">
               <div><strong style="color:var(--teamB)">Team B</strong></div>
-              <div class="small muted" style="margin-top:6px">Picks</div>
-              <div class="slots" id="teamB_picks"></div>
               <div class="small muted" style="margin-top:6px">Bans</div>
               <div class="slots" id="teamB_bans" style="margin-top:6px"></div>
+              <div class="small muted" style="margin-top:6px">Picks</div>
+              <div class="slots" id="teamB_picks"></div>
             </div>
           </div>
 
@@ -110,17 +111,7 @@
       </div>
     </div>
 
-    <!-- Opponent prediction modal -->
-    <div id="oppModal" class="modal-backdrop" style="display:none">
-      <div class="modal">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <strong>Opponent likely picks</strong>
-          <button id="closeOppModal" style="background:#ef4444;color:#04263b;border-radius:6px;padding:6px 8px;border:none">Close</button>
-        </div>
-        <div class="small muted" style="margin-top:6px">ฮีโร่จาก pool ของฝ่ายตรงข้ามที่ยังเหลืออยู่ (ไม่รวมตัวที่ถูกเลือก/ban แล้ว)</div>
-        <div id="oppPredGrid" class="grid" style="margin-top:8px"></div>
-      </div>
-    </div>
+    <!-- Opponent prediction modal removed -->
 
     <script>
       // Minimal, self-contained draft helper
@@ -253,31 +244,135 @@
 
       // Application state
       let state = {
-        games: [],            // will hold up to 7 games: {picks:{A:[],B:[]}, bans:{A:[],B:[]}}
+        games: [],            // will hold up to 7 games: {picks:{A:[],B:[]}, bans:{A:[],B:[]} }
         currentGame: 1,
         seriesStarted: false,
         history: [],         // {type, team, hero, game}
-        usedGlobal: new Set(),
-        mode: 'normal',      // 'normal' or 'global'
-        opponentPool: []     // array of opponent hero ids (max 5)
+        // track heroes used in previous games separately per team
+        usedByTeam: { A: new Set(), B: new Set() },
+        mode: 'normal'      // 'normal' or 'global'
       };
 
-      // role mapping (expanded). If a hero is missing here, it will be 'Other'
-  const ROLE_MAP = {
-        'Violet':'Marksman','Yorn':'Marksman','Slimz':'Marksman','Capheny':'Marksman','Valhein':'Marksman','Zip':'Tank','Fennik':'Marksman','Wisp':'Marksman','Max':'Warrior','Capheny':'Marksman',
-        'Krixi':'Mage','Aleister':'Mage','Lauriel':'Mage','Kahlii':'Mage','Ilumia':'Mage','Charlotte':'Warrior','Raz':'Mage',
-        'Murad':'Assassin','Nakroth':'Assassin','Zill':'Assassin','Airi':'Warrior','Quillen':'Assassin','Enzo':'Assassin','Mina':'Tank','Iggy':'Mage','Yena':'Warrior',
-        'Ormarr':'Tank','Taara':'Warrior','Zephys':'Warrior','Lu_Bu':'Warrior','Ryoma':'Warrior','Florentino':'Warrior','Skud':'Warrior','Rourke':'Marksman',
-        'Baldum':'Tank','Omen':'Tank','Volkath':'Warrior','Thane':'Tank','Gildur':'Support','Annette':'Support','Alice':'Support','TeeMee':'Support','Chaugnar':'Support',
-        'Bright':'Support','Valhein':'Marksman','Violet':'Marksman','Kriknak':'Assassin','TeeMee':'Support','DArcy':'Mage','Kahlii':'Mage','Sinestrea':'Mage','Goverra':'Mage',
-        'Keera':'Assassin','Marja':'Mage','Stuart':'Marksman','Bolt_Baron':'Warrior','Billow':'Support','Liliana':'Mage','Aya':'Assassin','Tulen':'Mage','Toro':'Tank',
-        'Cresht':'Tank','Riktor':'Tank','Rouie':'Support','Wonder_Woman':'Warrior','Sephera':'Support','Elsu':'Marksman','Lauriel':'Mage','Ming':'Mage','Thane':'Tank',
-        'bneth':'Mage','Zuka':'Assassin','WuKong':'Assassin','Butterfly':'Assassin','Arduin':'Warrior','Annas':'Support','Biron':'Warrior','Mganga':'Mage','Helen':'Support',
-        'Erin':'Marksman','Errol':'Warrior','Bonnie':'Mage','Airi':'Assassin','Lu_Bu':'Warrior','Laville':'Marksman','Maloch':'Warrior','Paine':'Marksman',
-        'Preyta':'Mage','Ilumia':'Mage','Kaine':'Assassin','Veres':'Warrior','Aleister':'Mage','Krizzix':'Support','Lumburr':'Support','Veera':'Mage','Teeri':'Marksman',
-        'Omega':'Assassin','Lorion':'Mage','Kahlii':'Mage','Diao_Chan':'Mage','Bijan':'Warrior','Arum':'Tank','Roxie':'Marksman','Slimz':'Marksman','The_Flash':'Assassin',
-        'Allain':'Marksman','Amily':'Warrior','Xeniel':'Support','Tachi':'Warrior','Zanis':'Warrior','Celica':'Mage','Moren':'Marksman','Mortos':'Warrior','Astrid':'Marksman',
-        'Dextra':'Marksman','Wiro':'Tank','Groth':'Warrior','Lindis':'Marksman','Jinna':'Mage','Ishar':'Mage','Roxie':'Warrior'
+      // role mapping (grouped by role for readability). If a hero is missing here, it will be 'Other'
+      const ROLE_MAP = {
+        // Marksman
+        'Violet': 'Marksman',
+        'Yorn': 'Marksman',
+        'Slimz': 'Marksman',
+        'Capheny': 'Marksman',
+        'Valhein': 'Marksman',
+        'Fennik': 'Marksman',
+        'Wisp': 'Marksman',
+        'Rourke': 'Marksman',
+        'Elsu': 'Marksman',
+        'Erin': 'Marksman',
+        'Laville': 'Marksman',
+        'Roxie': 'Marksman',
+        'Teeri': 'Marksman',
+        'Allain': 'Marksman',
+        'Moren': 'Marksman',
+        'Astrid': 'Marksman',
+        'Dextra': 'Marksman',
+        'Stuart': 'Marksman',
+
+        // Mage
+        'Krixi': 'Mage',
+        'Aleister': 'Mage',
+        'Lauriel': 'Mage',
+        'Kahlii': 'Mage',
+        'Ilumia': 'Mage',
+        'Raz': 'Mage',
+        'Iggy': 'Mage',
+        'DArcy': 'Mage',
+        'Marja': 'Mage',
+        'Liliana': 'Mage',
+        'Tulen': 'Mage',
+        'Ming': 'Mage',
+        'bneth': 'Mage',
+        'Mganga': 'Mage',
+        'Bonnie': 'Mage',
+        'Preyta': 'Mage',
+        'Veera': 'Mage',
+        'Lorion': 'Mage',
+        'Diao_Chan': 'Mage',
+        'Celica': 'Mage',
+        'Jinna': 'Mage',
+        'Ishar': 'Mage',
+        'Sinestrea': 'Mage',
+        'Goverra': 'Mage',
+
+        // Assassin
+        'Murad': 'Assassin',
+        'Nakroth': 'Assassin',
+        'Zill': 'Assassin',
+        'Quillen': 'Assassin',
+        'Enzo': 'Assassin',
+        'Kriknak': 'Assassin',
+        'Zuka': 'Assassin',
+        'WuKong': 'Assassin',
+        'Butterfly': 'Assassin',
+        'Aya': 'Assassin',
+        'Kaine': 'Assassin',
+        'Omega': 'Assassin',
+        'The_Flash': 'Assassin',
+        'Airi': 'Assassin',
+        'Keera': 'Assassin',
+
+        // Warrior
+        'Max': 'Warrior',
+        'Charlotte': 'Warrior',
+        'Yena': 'Warrior',
+        'Taara': 'Warrior',
+        'Zephys': 'Warrior',
+        'Lu_Bu': 'Warrior',
+        'Ryoma': 'Warrior',
+        'Florentino': 'Warrior',
+        'Skud': 'Warrior',
+        'Volkath': 'Warrior',
+        'Biron': 'Warrior',
+        'Errol': 'Warrior',
+        'Maloch': 'Warrior',
+        'Bijan': 'Warrior',
+        'Groth': 'Warrior',
+        'Veres': 'Warrior',
+        'Tachi': 'Warrior',
+        'Zanis': 'Warrior',
+        'Mortos': 'Warrior',
+
+        // Tank
+        'Zip': 'Tank',
+        'Mina': 'Tank',
+        'Ormarr': 'Tank',
+        'Toro': 'Tank',
+        'Cresht': 'Tank',
+        'Riktor': 'Tank',
+        'Baldum': 'Tank',
+        'Omen': 'Tank',
+        'Arum': 'Tank',
+        'Thane': 'Tank',
+        'Wiro': 'Tank',
+
+        // Support
+        'Gildur': 'Support',
+        'Annette': 'Support',
+        'Alice': 'Support',
+        'TeeMee': 'Support',
+        'Chaugnar': 'Support',
+        'Bright': 'Support',
+        'Billow': 'Support',
+        'Rouie': 'Support',
+        'Sephera': 'Support',
+        'Annas': 'Support',
+        'Krizzix': 'Support',
+        'Lumburr': 'Support',
+        'Xeniel': 'Support',
+        'Helen': 'Support',
+
+        // Other / fallback group entries
+        'Bolt_Baron': 'Warrior',
+        'Wonder_Woman': 'Warrior',
+        'bneth': 'Mage',
+        'Roxie': 'Warrior'
       };
 
       // Colors for roles (inspired by drawban palette)
@@ -359,25 +454,33 @@
           el.appendChild(nameDiv);
 
           // disable selection when hero is used in earlier games in global mode
-          const usedInPrev = state.usedGlobal.has(h.id);
+          // check previous usage separately per team
+          const usedInPrevA = state.usedByTeam && state.usedByTeam.A && state.usedByTeam.A.has(h.id);
+          const usedInPrevB = state.usedByTeam && state.usedByTeam.B && state.usedByTeam.B.has(h.id);
           const curGame = state.games[state.currentGame-1] || {picks:{A:[],B:[]}, bans:{A:[],B:[]}};
           const usedInThis = (curGame.picks.A.includes(h.id) || curGame.picks.B.includes(h.id) || curGame.bans.A.includes(h.id) || curGame.bans.B.includes(h.id));
           // Determine disabling rules:
           // - If global mode off: allow selection
-          // - If global mode on and currentGame is 2 or 3: heroes used in previous games are disabled only for Team A (our team)
-          // - Otherwise (global and not 2/3): heroes used in previous games are disabled for both teams
+          // - If global mode on: heroes used in previous games are disabled only for the same team that used them previously
           const turn = byId('turnSelect').value;
           let disabled = false;
-          if (state.mode === 'global' && usedInPrev && !usedInThis){
-            if (state.currentGame === 2 || state.currentGame === 3){
-              // disable only for Team A
-              if (turn === 'A') disabled = true;
-            } else {
-              disabled = true;
-            }
+          if (state.mode === 'global' && !usedInThis){
+            if (turn === 'A' && usedInPrevA) disabled = true;
+            if (turn === 'B' && usedInPrevB) disabled = true;
           }
-          if (disabled){ el.style.opacity = '0.35'; el.style.cursor = 'not-allowed'; el.title = 'ถูกใช้ในเกมก่อนหน้า (global)'; }
-          else { el.onclick = ()=>{ lastSelected = h.id; if (selName) selName.textContent = h.name; renderHeroGrid(); }; }
+          if (disabled){ 
+            el.style.opacity = '0.35'; el.style.cursor = 'not-allowed'; el.title = 'ถูกใช้ในเกมก่อนหน้า (global)';
+            // show which team previously picked this hero
+            let badgeLabel = '';
+            if (usedInPrevA) badgeLabel = 'A';
+            if (usedInPrevB) badgeLabel = badgeLabel ? (badgeLabel + '/B') : 'B';
+            const badge = document.createElement('div'); badge.className = 'used-badge'; badge.textContent = badgeLabel;
+            // color by team (if both, use muted)
+            if (usedInPrevA && !usedInPrevB) badge.style.background = 'var(--teamA)';
+            else if (usedInPrevB && !usedInPrevA) badge.style.background = 'var(--teamB)';
+            else badge.style.background = 'var(--muted)';
+            el.appendChild(badge);
+          } else { el.onclick = ()=>{ lastSelected = h.id; if (selName) selName.textContent = h.name; renderHeroGrid(); }; }
           // append badge
           el.appendChild(badge);
           heroContainer.appendChild(el);
@@ -404,11 +507,10 @@
           state.history.push({type:'ban',team,hero:lastSelected,game:state.currentGame});
         }
 
-  // recompute usedGlobal (heroes used in previous games)
-        recomputeUsedGlobal();
+  // recompute used-by-team (heroes used in previous games per team)
+  recomputeUsedByTeam();
 
-        // if opponent picked, possibly show prediction modal for their next picks
-        if (team === 'B') showOpponentPredictIfNeeded();
+        // opponent prediction removed
 
   lastSelected = null; if (selName) selName.textContent='—'; renderState(); renderHeroGrid();
         // if auto-next enabled and both teams reached 5 picks, advance game
@@ -465,13 +567,10 @@
         } else {
           g.bans[last.team] = g.bans[last.team].filter(x=>x!==last.hero);
         }
-        recomputeUsedGlobal();
+        recomputeUsedByTeam();
         renderState(); renderHeroGrid();
-      };
-
-      byId('reset').onclick = ()=>{
         if (!confirm('ต้องการล้างทั้งหมดไหม?')) return;
-        state.games = Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}})); state.history=[]; state.usedGlobal = new Set(); renderState(); renderHeroGrid();
+        state.games = Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}})); state.history=[]; state.usedByTeam = { A: new Set(), B: new Set() }; renderState(); renderHeroGrid();
       };
 
       const saveLocalBtn = byId('saveLocal'); if (saveLocalBtn) saveLocalBtn.onclick = ()=>{
@@ -481,12 +580,12 @@
 
       const loadLocalBtn = byId('loadLocal'); if (loadLocalBtn) loadLocalBtn.onclick = ()=>{
         const raw = localStorage.getItem('draft_demo'); if (!raw) return alert('ไม่พบข้อมูลใน localStorage');
-        try{ const obj = JSON.parse(raw); state.games = obj.games || Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}})); state.history = obj.history || []; recomputeUsedGlobal(); renderState(); renderHeroGrid(); }catch(e){ alert('ข้อมูลไม่ถูกต้อง'); }
+        try{ const obj = JSON.parse(raw); state.games = obj.games || Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}})); state.history = obj.history || []; recomputeUsedByTeam(); renderState(); renderHeroGrid(); }catch(e){ alert('ข้อมูลไม่ถูกต้อง'); }
       };
 
       const exportJsonBtn = byId('exportJson'); const importJsonBtn = byId('importJson'); const jsonAreaEl = byId('jsonArea');
       if (exportJsonBtn && jsonAreaEl) exportJsonBtn.onclick = ()=>{ jsonAreaEl.value = JSON.stringify({games:state.games,history:state.history}, null, 2); };
-      if (importJsonBtn && jsonAreaEl) importJsonBtn.onclick = ()=>{ try{ const obj = JSON.parse(jsonAreaEl.value); state.games = obj.games || state.games; state.history = obj.history || state.history; recomputeUsedGlobal(); renderState(); renderHeroGrid(); }catch(e){ alert('JSON ไม่ถูกต้อง'); } };
+      if (importJsonBtn && jsonAreaEl) importJsonBtn.onclick = ()=>{ try{ const obj = JSON.parse(jsonAreaEl.value); state.games = obj.games || state.games; state.history = obj.history || state.history; recomputeUsedByTeam(); renderState(); renderHeroGrid(); }catch(e){ alert('JSON ไม่ถูกต้อง'); } };
 
       // search input
       byId('search').oninput = ()=>renderHeroGrid();
@@ -495,14 +594,19 @@
       byId('filterRole').onchange = ()=>renderHeroGrid();
 
       // game selector and global mode handlers
-      function recomputeUsedGlobal(){
-        // usedGlobal = heroes used in games before currentGame
-        const set = new Set();
+      function recomputeUsedByTeam(){
+        // usedByTeam = heroes *picked* in games before currentGame, tracked per team
+        // Global Ban Pick semantics: a hero that a team picked in earlier games
+        // should not be pickable again by the same team later in the series.
+        const setA = new Set();
+        const setB = new Set();
         for(let i=0;i<state.currentGame-1;i++){
           const g = state.games[i]; if (!g) continue;
-          [...g.picks.A,...g.picks.B,...g.bans.A,...g.bans.B].forEach(h=>set.add(h));
+          // count only picks (not bans) for the "cannot reuse picks" rule
+          [...g.picks.A].forEach(h=>setA.add(h));
+          [...g.picks.B].forEach(h=>setB.add(h));
         }
-        state.usedGlobal = set;
+        state.usedByTeam = { A: setA, B: setB };
       }
 
       function initGamesAndUI(){
@@ -510,15 +614,13 @@
         const sel = byId('gameSelect'); sel.innerHTML = '';
         for(let i=1;i<=7;i++){ const o = document.createElement('option'); o.value = String(i); o.textContent = 'Game ' + i; sel.appendChild(o); }
         sel.value = String(state.currentGame);
-        sel.onchange = ()=>{ state.currentGame = Number(sel.value); recomputeUsedGlobal(); renderState(); renderHeroGrid(); };
+        sel.onchange = ()=>{ state.currentGame = Number(sel.value); recomputeUsedByTeam(); renderState(); renderHeroGrid(); };
 
         const chk = byId('modeGlobal'); chk.checked = (state.mode === 'global');
-        chk.onchange = ()=>{ state.mode = chk.checked ? 'global' : 'normal'; recomputeUsedGlobal(); renderHeroGrid(); };
+        chk.onchange = ()=>{ state.mode = chk.checked ? 'global' : 'normal'; recomputeUsedByTeam(); renderHeroGrid(); };
 
-        // load opponent pool and render related UI
-        loadOpponentPool(); renderOpponentSelect(); renderOpponentSlots();
-
-        recomputeUsedGlobal();
+          // opponent prediction removed
+          recomputeUsedByTeam();
       }
 
       // auto-advance logic
@@ -530,13 +632,13 @@
         const picksCount = (g.picks.A.length + g.picks.B.length);
         if (picksCount >= 10){
           // advance to next if possible
-          if (state.currentGame < 7){ state.currentGame++; byId('gameSelect').value = String(state.currentGame); recomputeUsedGlobal(); renderState(); renderHeroGrid(); }
+          if (state.currentGame < 7){ state.currentGame++; byId('gameSelect').value = String(state.currentGame); recomputeUsedByTeam(); renderState(); renderHeroGrid(); }
         }
       }
 
       // Next Game button
       byId('nextGame').onclick = ()=>{
-        if (state.currentGame < 7){ state.currentGame++; byId('gameSelect').value = String(state.currentGame); recomputeUsedGlobal(); renderState(); renderHeroGrid(); }
+        if (state.currentGame < 7){ state.currentGame++; byId('gameSelect').value = String(state.currentGame); recomputeUsedByTeam(); renderState(); renderHeroGrid(); }
       };
 
       // Download images button: create and show the PS1 script location and instructions
@@ -561,74 +663,7 @@
   const csvBtn = document.createElement('button'); csvBtn.textContent='Export CSV'; csvBtn.style.marginLeft='6px'; csvBtn.onclick = ()=>{ const ja = byId('jsonArea'); if (ja) ja.value = exportCSV(); };
   const asideEl = document.querySelector('aside.card'); if (asideEl) asideEl.appendChild(csvBtn);
 
-      // --- Opponent pool functions ---
-      function loadOpponentPool(){
-        try{
-          const raw = localStorage.getItem('opponent_pool'); if (!raw) { state.opponentPool = []; return; }
-          const arr = JSON.parse(raw); if (Array.isArray(arr)) state.opponentPool = arr.slice(0,5); else state.opponentPool = [];
-        }catch(e){ state.opponentPool = []; }
-      }
-
-      function renderOpponentSelect(){
-        const sel = byId('opponentSelect'); if (!sel) return;
-        sel.innerHTML='';
-        const empty = document.createElement('option'); empty.value=''; empty.textContent='-- เลือกฮีโร่ --'; sel.appendChild(empty);
-        HEROES.forEach(h=>{ const o=document.createElement('option'); o.value = h.id; o.textContent = h.name; sel.appendChild(o); });
-      }
-
-      function renderOpponentSlots(){
-        const cont = byId('opponentSlots'); if (!cont) return; cont.innerHTML='';
-        state.opponentPool.forEach(id=>{
-          const h = HEROES.find(x=>x.id===id) || {name:id,img:''};
-          const d = document.createElement('div'); d.style.display='flex'; d.style.flexDirection='column'; d.style.alignItems='center'; d.style.width='80px';
-          const img = document.createElement('img'); img.src = h.img || ''; img.alt=h.name; img.style.width='60px'; img.style.height='60px'; img.style.objectFit='contain'; img.onerror=()=>img.remove();
-          const nm = document.createElement('div'); nm.textContent = h.name; nm.style.fontSize='12px'; nm.style.marginTop='6px'; nm.className='small muted';
-          const rem = document.createElement('button'); rem.textContent='x'; rem.style.marginTop='6px'; rem.onclick = ()=>{ state.opponentPool = state.opponentPool.filter(x=>x!==id); renderOpponentSlots(); };
-          if (h.img) d.appendChild(img);
-          d.appendChild(nm); d.appendChild(rem); cont.appendChild(d);
-        });
-      }
-
-      // wire up opponent UI buttons (guard in case elements are missing)
-      const opponentAddBtn = byId('addOpponent'); if (opponentAddBtn) opponentAddBtn.onclick = ()=>{
-        const sel = byId('opponentSelect'); const id = sel ? sel.value : null; if (!id) return alert('โปรดเลือกฮีโร่');
-        if (state.opponentPool.includes(id)) return alert('ฮีโร่อยู่ใน pool แล้ว');
-        if (state.opponentPool.length >= 5) return alert('เกินจำนวนสูงสุด 5 ตัว');
-        state.opponentPool.push(id); renderOpponentSlots();
-      };
-      const opponentSaveBtn = byId('saveOpponent'); if (opponentSaveBtn) opponentSaveBtn.onclick = ()=>{ localStorage.setItem('opponent_pool', JSON.stringify(state.opponentPool)); alert('บันทึก pool เรียบร้อย'); };
-      const opponentClearBtn = byId('clearOpponent'); if (opponentClearBtn) opponentClearBtn.onclick = ()=>{ if (!confirm('ล้าง pool ฝ่ายตรงข้าม?')) return; state.opponentPool = []; localStorage.removeItem('opponent_pool'); renderOpponentSlots(); };
-
-      function showOppModal(ids){
-        const wrap = byId('oppPredGrid'); if (!wrap) return; wrap.innerHTML='';
-        if (!ids || ids.length===0){ wrap.innerHTML = '<div class="small muted">ไม่มีฮีโร่ที่เหลือจาก pool</div>'; }
-        else {
-          ids.forEach(id=>{
-            const h = HEROES.find(x=>x.id===id) || {name:id,img:''};
-            const p = document.createElement('div'); p.className='pred';
-            const img = document.createElement('img'); img.src = h.img || ''; img.alt = h.name; img.onerror = ()=>img.remove();
-            const nm = document.createElement('div'); nm.textContent = h.name; nm.className='small muted'; nm.style.marginTop='6px'; nm.style.fontSize='12px';
-            if (h.img) p.appendChild(img);
-            p.appendChild(nm);
-            wrap.appendChild(p);
-          });
-        }
-        const modal = byId('oppModal'); if (modal) modal.style.display = 'flex';
-      }
-
-      function hideOppModal(){ const m = byId('oppModal'); if (m) m.style.display='none'; }
-      const closeOpp = byId('closeOppModal'); if (closeOpp) closeOpp.onclick = hideOppModal;
-      const modalWrap = byId('oppModal'); if (modalWrap) modalWrap.addEventListener('click', (ev)=>{ if (ev.target === ev.currentTarget) hideOppModal(); });
-
-      function showOpponentPredictIfNeeded(){
-        const g = state.games[state.currentGame-1]; if (!g) return;
-        const cnt = g.picks.B.length;
-        if (cnt === 1 || cnt === 2){
-          const already = new Set([...g.picks.A, ...g.picks.B, ...g.bans.A, ...g.bans.B]);
-          const remain = state.opponentPool.filter(id=>!already.has(id));
-          showOppModal(remain);
-        }
-      }
+      // Opponent prediction removed
 
       // init
       initGamesAndUI(); renderHeroGrid(); renderState();
