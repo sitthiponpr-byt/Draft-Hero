@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Draft Helper — Local</title>
+    <style>
+      :root{--bg:#0f172a;--card:#0b1220;--muted:#9ca3af;--accent:#60a5fa}
+      body{font-family:Segoe UI, Roboto, Arial, sans-serif; background:linear-gradient(180deg,#071029 0%, #071b2b 100%); color:#e6eef8; margin:0; padding:28px}
+      .container{max-width:1100px;margin:0 auto}
+      header{display:flex;align-items:center;gap:16px}
+      h1{margin:0;font-size:20px}
+      .layout{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:18px}
+      .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+      .hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
+  .hero{padding:10px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);cursor:pointer;border:1px solid rgba(255,255,255,0.02);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px}
+  .hero.selected{box-shadow:0 6px 18px rgba(96,165,250,0.12);transform:translateY(-2px)}
+  .hero img{width:64px;height:64px;object-fit:contain;border-radius:6px;display:block}
+      .controls{display:flex;gap:8px;margin-top:10px}
+      button{background:var(--accent);border:none;padding:8px 10px;border-radius:8px;color:#04263b;cursor:pointer;font-weight:600}
+      .muted{color:var(--muted);font-size:13px}
+      .slots{display:flex;gap:8px;margin-top:8px}
+      .slot{flex:1;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);text-align:center}
+      textarea{width:100%;height:90px;border-radius:6px;background:transparent;border:1px dashed rgba(255,255,255,0.04);color:inherit;padding:8px}
+      .small{font-size:13px;color:var(--muted)}
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div>
+          <h1>Draft Helper </h1>
+          <div class="small muted">Pick / Ban, Undo, Save/Load และ Export/Import JSON</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="small muted">Game</label>
+          <select id="gameSelect"></select>
+          <label class="small muted"><input type="checkbox" id="modeGlobal" /> Global ban/pick</label>
+          <button id="downloadImages" style="margin-left:8px;padding:6px 8px;border-radius:8px;background:#94a3b8;color:#04263b;font-weight:600">Download images</button>
+          <button id="nextGame" style="margin-left:4px;padding:6px 8px;border-radius:8px;background:#a3e635;color:#04263b;font-weight:600">Next Game</button>
+          <label class="small muted" style="display:flex;align-items:center;gap:6px;margin-left:6px"><input type="checkbox" id="autoNext" /> Auto-next when picks full</label>
+        </div>
+      </header>
+
+      <div class="layout">
+        <main class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong id="currentAction">เลือกฮีโร่</strong>
+              <div class="small muted" id="helpText">คลิกฮีโร่แล้วกด Pick หรือ Ban</div>
+            </div>
+            <div>
+              <button id="undo">Undo</button>
+              <button id="reset">Reset</button>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="small muted">Team A picks</div>
+          <div class="slots" id="teamA_picks"></div>
+          <div style="margin-top:8px" class="small muted">Team B picks</div>
+          <div class="slots" id="teamB_picks"></div>
+
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+            <button id="pickBtn">Pick</button>
+            <button id="banBtn">Ban</button>
+            <select id="turnSelect"><option value="A">Team A</option><option value="B">Team B</option></select>
+            <select id="filterRole" style="margin-left:8px;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit">
+              <option value="">All roles</option>
+              <option value="Marksman">Marksman</option>
+              <option value="Mage">Mage</option>
+              <option value="Assassin">Assassin</option>
+              <option value="Warrior">Warrior</option>
+              <option value="Tank">Tank</option>
+              <option value="Support">Support</option>
+              <option value="Other">Other</option>
+            </select>
+            <input id="search" placeholder="ค้นหาฮีโร่..." style="margin-left:auto;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit" />
+          </div>
+
+          <div style="margin-top:12px" id="heroContainer" class="hero-grid card"></div>
+        </main>
+
+        <aside class="card">
+          <div><strong>State</strong></div>
+          <div class="small muted">Current selection: <span id="selName">—</span></div>
+          <div style="margin-top:8px"><strong>Ban lists (demo)</strong></div>
+          <div id="teamA_bans" class="slots" style="margin-top:6px"></div>
+          <div id="teamB_bans" class="slots" style="margin-top:6px"></div>
+
+          <div style="margin-top:12px"><strong>Save / Load</strong></div>
+          <div class="small muted">Local storage:</div>
+          <div style="display:flex;gap:8px;margin-top:6px"><button id="saveLocal">Save</button><button id="loadLocal">Load</button></div>
+
+          <div style="margin-top:12px"><strong>Export / Import</strong></div>
+          <textarea id="jsonArea" placeholder="Exported JSON" ></textarea>
+          <div style="display:flex;gap:8px;margin-top:6px"><button id="exportJson">Export</button><button id="importJson">Import</button></div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      // Minimal, self-contained draft helper
+      const HEROES = [
+        {id:'Goverra', name:'Goverra', img:'https://drawban.com/image/hero/Goverra.webp'},
+        {id:'Heino', name:'Heino', img:'https://drawban.com/image/hero/Heino.webp'},
+        {id:'Keera', name:'Keera', img:'https://drawban.com/image/hero/Keera.webp'},
+        {id:'Marja', name:'Marja', img:'https://drawban.com/image/hero/Marja.webp'},
+        {id:'Florentino', name:'Florentino', img:'https://drawban.com/image/hero/Florentino.webp'},
+        {id:'Stuart', name:'Stuart', img:'https://drawban.com/image/hero/Stuart.webp'},
+        {id:'Bolt_Baron', name:'Bolt Baron', img:'https://drawban.com/image/hero/Bolt_Baron.webp'},
+        {id:'Billow', name:'Billow', img:'https://drawban.com/image/hero/Billow.webp'},
+        {id:'Liliana', name:'Liliana', img:'https://drawban.com/image/hero/Liliana.webp'},
+        {id:'Aya', name:'Aya', img:'https://drawban.com/image/hero/Aya.webp'},
+        {id:'Enzo', name:'Enzo', img:'https://drawban.com/image/hero/Enzo.webp'},
+        {id:'TeeMee', name:'TeeMee', img:'https://drawban.com/image/hero/TeeMee.webp'},
+        {id:'Ignis', name:'Ignis', img:'https://drawban.com/image/hero/Ignis.webp'},
+        {id:'Dolia', name:'Dolia', img:'https://drawban.com/image/hero/Dolia.webp'},
+        {id:'Valhein', name:'Valhein', img:'https://drawban.com/image/hero/Valhein.webp'},
+        {id:'Hayate', name:'Hayate', img:'https://drawban.com/image/hero/Hayate.webp'},
+        {id:'Qi', name:'Qi', img:'https://drawban.com/image/hero/Qi.webp'},
+        {id:'Aoi', name:'Aoi', img:'https://drawban.com/image/hero/Aoi.webp'},
+        {id:'Grakk', name:'Grakk', img:'https://drawban.com/image/hero/Grakk.webp'},
+        {id:'Elandorr', name:'Elandorr', img:'https://drawban.com/image/hero/Elandorr.webp'},
+        {id:'Nakroth', name:'Nakroth', img:'https://drawban.com/image/hero/Nakroth.webp'},
+        {id:'Natalya', name:'Natalya', img:'https://drawban.com/image/hero/Natalya.webp'},
+        {id:'Tulen', name:'Tulen', img:'https://drawban.com/image/hero/Tulen.webp'},
+        {id:'Toro', name:'Toro', img:'https://drawban.com/image/hero/Toro.webp'},
+        {id:'Cresht', name:'Cresht', img:'https://drawban.com/image/hero/Cresht.webp'},
+        {id:'Riktor', name:'Riktor', img:'https://drawban.com/image/hero/Riktor.webp'},
+        {id:'Rouie', name:'Rouie', img:'https://drawban.com/image/hero/Rouie.webp'},
+        {id:'Wonder_Woman', name:'Wonder Woman', img:'https://drawban.com/image/hero/Wonder_Woman.webp'},
+        {id:'Sephera', name:'Sephera', img:'https://drawban.com/image/hero/Sephera.webp'},
+        {id:'Elsu', name:'Elsu', img:'https://drawban.com/image/hero/Elsu.webp'},
+        {id:'Fennik', name:'Fennik', img:'https://drawban.com/image/hero/Fennik.webp'},
+        {id:'Yena', name:'Yena', img:'https://drawban.com/image/hero/Yena.webp'},
+        {id:'Iggy', name:'Iggy', img:'https://drawban.com/image/hero/Iggy.webp'},
+        {id:'Lauriel', name:'Lauriel', img:'https://drawban.com/image/hero/Lauriel.webp'},
+        {id:'Murad', name:'Murad', img:'https://drawban.com/image/hero/Murad.webp'},
+        {id:'Ming', name:'Ming', img:'https://drawban.com/image/hero/Ming.webp'},
+        {id:'Raz', name:'Raz', img:'https://drawban.com/image/hero/Raz.webp'},
+        {id:'Skud', name:'Skud', img:'https://drawban.com/image/hero/Skud.webp'},
+        {id:'Thane', name:'Thane', img:'https://drawban.com/image/hero/Thane.webp'},
+        {id:'Violet', name:'Violet', img:'https://drawban.com/image/hero/Violet.webp'},
+        {id:'Zip', name:'Zip', img:'https://drawban.com/image/hero/Zip.webp'},
+        {id:'bneth', name:'Y-bneth', img:'https://drawban.com/image/hero/bneth.webp'},
+        {id:'Zuka', name:'Zuka', img:'https://drawban.com/image/hero/Zuka.webp'},
+        {id:'WuKong', name:'WuKong', img:'https://drawban.com/image/hero/WuKong.webp'},
+        {id:'Yan', name:'Yan', img:'https://drawban.com/image/hero/Yan.webp'},
+        {id:'Butterfly', name:'Butterfly', img:'https://drawban.com/image/hero/Butterfly.webp'},
+        {id:'Arduin', name:'Arduin', img:'https://drawban.com/image/hero/Arduin.webp'},
+        {id:'Annas', name:'Tel Annas', img:'https://drawban.com/image/hero/Annas.webp'},
+        {id:'Omen', name:'Omen', img:'https://drawban.com/image/hero/Omen.webp'},
+        {id:'Biron', name:'Biron', img:'https://drawban.com/image/hero/Biron.webp'},
+        {id:'Yue', name:'Yue', img:'https://drawban.com/image/hero/Yue.webp'},
+        {id:'Mganga', name:'Mganga', img:'https://drawban.com/image/hero/Mganga.webp'},
+        {id:'Helen', name:'Helen', img:'https://drawban.com/image/hero/Helen.webp'},
+        {id:'Erin', name:'Erin', img:'https://drawban.com/image/hero/Erin.webp'},
+        {id:'Errol', name:'Errol', img:'https://drawban.com/image/hero/Errol.webp'},
+        {id:'Bonnie', name:'Bonnie', img:'https://drawban.com/image/hero/Bonnie.webp'},
+        {id:'Airi', name:'Airi', img:'https://drawban.com/image/hero/Airi.webp'},
+        {id:'Lu_Bu', name:'Lu Bu', img:'https://drawban.com/image/hero/Lu_Bu.webp'},
+        {id:'Mina', name:'Mina', img:'https://drawban.com/image/hero/Mina.webp'},
+        {id:'Capheny', name:'Capheny', img:'https://drawban.com/image/hero/Capheny.webp'},
+        {id:'Laville', name:'Laville', img:'https://drawban.com/image/hero/Laville.webp'},
+        {id:'Maloch', name:'Maloch', img:'https://drawban.com/image/hero/Maloch.webp'},
+        {id:'Paine', name:'Paine', img:'https://drawban.com/image/hero/Paine.webp'},
+        {id:'Preyta', name:'Preyta', img:'https://drawban.com/image/hero/Preyta.webp'},
+        {id:'Ryoma', name:'Ryoma', img:'https://drawban.com/image/hero/Ryoma.webp'},
+        {id:'Ilumia', name:'Ilumia', img:'https://drawban.com/image/hero/Ilumia.webp'},
+        {id:'Kaine', name:'Kaine', img:'https://drawban.com/image/hero/Kaine.webp'},
+        {id:'Kriknak', name:'Kriknak', img:'https://drawban.com/image/hero/Kriknak.webp'},
+        {id:'Zill', name:'Zill', img:'https://drawban.com/image/hero/Zill.webp'},
+        {id:'Volkath', name:'Volkath', img:'https://drawban.com/image/hero/Volkath.webp'},
+        {id:'Veres', name:'Veres', img:'https://drawban.com/image/hero/Veres.webp'},
+        {id:'Baldum', name:'Baldum', img:'https://drawban.com/image/hero/Baldum.webp'},
+        {id:'Annette', name:'Annette', img:'https://drawban.com/image/hero/Annette.webp'},
+        {id:'Aleister', name:'Aleister', img:'https://drawban.com/image/hero/Aleister.webp'},
+        {id:'Bright', name:'Bright', img:'https://drawban.com/image/hero/Bright.webp'},
+        {id:'Charlotte', name:'Charlotte', img:'https://drawban.com/image/hero/Charlotte.webp'},
+        {id:'Krixi', name:'Krixi', img:'https://drawban.com/image/hero/Krixi.webp'},
+        {id:'Krizzix', name:'Krizzix', img:'https://drawban.com/image/hero/Krizzix.webp'},
+        {id:'Lumburr', name:'Lumburr', img:'https://drawban.com/image/hero/Lumburr.webp'},
+        {id:'Sinestrea', name:'Sinestrea', img:'https://drawban.com/image/hero/Sinestrea.webp'},
+        {id:'azenKa', name:'azenKa', img:'https://drawban.com/image/hero/azenKa.webp'},
+        {id:'Veera', name:'Veera', img:'https://drawban.com/image/hero/Veera.webp'},
+        {id:'Teeri', name:'Teeri', img:'https://drawban.com/image/hero/Teeri.webp'},
+        {id:'Quillen', name:'Quillen', img:'https://drawban.com/image/hero/Quillen.webp'},
+        {id:'Omega', name:'Omega', img:'https://drawban.com/image/hero/Omega.webp'},
+        {id:'Lorion', name:'Lorion', img:'https://drawban.com/image/hero/Lorion.webp'},
+        {id:'Kahlii', name:'Kahlii', img:'https://drawban.com/image/hero/Kahlii.webp'},
+        {id:'Dirak', name:'Dirak', img:'https://drawban.com/image/hero/Dirak.webp'},
+        {id:'Diao_Chan', name:'Diao Chan', img:'https://drawban.com/image/hero/Diao_Chan.webp'},
+        {id:'Bijan', name:'Bijan', img:'https://drawban.com/image/hero/Bijan.webp'},
+        {id:'Arum', name:'Arum', img:'https://drawban.com/image/hero/Arum.webp'},
+        {id:'Alice', name:'Alice', img:'https://drawban.com/image/hero/Alice.webp'},
+        {id:'Chaugnar', name:'Chaugnar', img:'https://drawban.com/image/hero/Chaugnar.webp'},
+        {id:'DArcy', name:'DArcy', img:'https://drawban.com/image/hero/DArcy.webp'},
+        {id:'Gildur', name:'Gildur', img:'https://drawban.com/image/hero/Gildur.webp'},
+        {id:'Groth', name:'Groth', img:'https://drawban.com/image/hero/Groth.webp'},
+        {id:'Lindis', name:'Lindis', img:'https://drawban.com/image/hero/Lindis.webp'},
+        {id:'Jinna', name:'Jinna', img:'https://drawban.com/image/hero/Jinna.webp'},
+        {id:'Ishar', name:'Ishar', img:'https://drawban.com/image/hero/Ishar.webp'},
+        {id:'Roxie', name:'Roxie', img:'https://drawban.com/image/hero/Roxie.webp'},
+        {id:'Ormarr', name:'Ormarr', img:'https://drawban.com/image/hero/Ormarr.webp'},
+        {id:'Rourke', name:'Rourke', img:'https://drawban.com/image/hero/Rourke.webp'},
+        {id:'Slimz', name:'Slimz', img:'https://drawban.com/image/hero/Slimz.webp'},
+        {id:'The_Flash', name:'The Flash', img:'https://drawban.com/image/hero/The_Flash.webp'},
+        {id:'Allain', name:'Allain', img:'https://drawban.com/image/hero/Allain.webp'},
+        {id:'Amily', name:'Amily', img:'https://drawban.com/image/hero/Amily.webp'},
+        {id:'Wisp', name:'Wisp', img:'https://drawban.com/image/hero/Wisp.webp'},
+        {id:'Xeniel', name:'Xeniel', img:'https://drawban.com/image/hero/Xeniel.webp'},
+        {id:'Taara', name:'Taara', img:'https://drawban.com/image/hero/Taara.webp'},
+        {id:'Tachi', name:'Tachi', img:'https://drawban.com/image/hero/Tachi.webp'},
+        {id:'Yorn', name:'Yorn', img:'https://drawban.com/image/hero/Yorn.webp'},
+        {id:'Superman', name:'Superman', img:'https://drawban.com/image/hero/Superman.webp'},
+        {id:'Max', name:'Max', img:'https://drawban.com/image/hero/Max.webp'},
+        {id:'Zanis', name:'Zanis', img:'https://drawban.com/image/hero/Zanis.webp'},
+        {id:'Celica', name:'Celica', img:'https://drawban.com/image/hero/Celica.webp'},
+        {id:'Thorne', name:'Thorne', img:'https://drawban.com/image/hero/Thorne.webp'},
+        {id:'Moren', name:'Moren', img:'https://drawban.com/image/hero/Moren.webp'},
+        {id:'Zephys', name:'Zephys', img:'https://drawban.com/image/hero/Zephys.webp'},
+        {id:'Zata', name:'Zata', img:'https://drawban.com/image/hero/Zata.webp'},
+        {id:'Mortos', name:'Mortos', img:'https://drawban.com/image/hero/Mortos.webp'},
+        {id:'Astrid', name:'Astrid', img:'https://drawban.com/image/hero/Astrid.webp'},
+        {id:'Ata', name:'Ata', img:'https://drawban.com/image/hero/Ata.webp'},
+        {id:'Dextra', name:'Dextra', img:'https://drawban.com/image/hero/Dextra.webp'},
+        {id:'Wiro', name:'Wiro', img:'https://drawban.com/image/hero/Wiro.webp'}
+      ];
+
+      // Application state
+      let state = {
+        games: [],            // will hold up to 7 games: {picks:{A:[],B:[]}, bans:{A:[],B:[]}}
+        currentGame: 1,
+        seriesStarted: false,
+        history: [],         // {type, team, hero, game}
+        usedGlobal: new Set(),
+        mode: 'normal'       // 'normal' or 'global'
+      };
+
+      // role mapping (expanded). If a hero is missing here, it will be 'Other'
+      const ROLE_MAP = {
+        'Violet':'Marksman','Yorn':'Marksman','Slimz':'Marksman','Capheny':'Marksman','Valhein':'Marksman','Zip':'Marksman','Fennik':'Marksman','Wisp':'Marksman','Max':'Marksman','Capheny':'Marksman',
+        'Krixi':'Mage','Aleister':'Mage','Lauriel':'Mage','Kahlii':'Mage','Ilumia':'Mage','Charlotte':'Mage','Raz':'Assassin',
+        'Murad':'Assassin','Nakroth':'Assassin','Zill':'Assassin','Airi':'Assassin','Quillen':'Assassin','Enzo':'Assassin','Mina':'Marksman','Iggy':'Marksman','Yena':'Assassin',
+        'Ormarr':'Warrior','Taara':'Warrior','Zephys':'Warrior','Lu_Bu':'Warrior','Ryoma':'Warrior','Florentino':'Warrior','Skud':'Warrior','Rourke':'Marksman',
+        'Baldum':'Tank','Omen':'Tank','Volkath':'Warrior','Thane':'Tank','Gildur':'Support','Annette':'Support','Alice':'Support','TeeMee':'Support','Chaugnar':'Support',
+        'Bright':'Support','Valhein':'Marksman','Violet':'Marksman','Kriknak':'Assassin','TeeMee':'Support','DArcy':'Mage','Kahlii':'Mage','Sinestrea':'Mage','Goverra':'Tank',
+        'Keera':'Assassin','Marja':'Mage','Stuart':'Marksman','Bolt_Baron':'Warrior','Billow':'Support','Liliana':'Mage','Aya':'Assassin','Tulen':'Mage','Toro':'Tank',
+        'Cresht':'Tank','Riktor':'Tank','Rouie':'Support','Wonder_Woman':'Warrior','Sephera':'Support','Elsu':'Marksman','Lauriel':'Mage','Ming':'Mage','Thane':'Tank',
+        'bneth':'Mage','Zuka':'Assassin','WuKong':'Assassin','Butterfly':'Assassin','Arduin':'Warrior','Annas':'Support','Biron':'Warrior','Mganga':'Mage','Helen':'Support',
+        'Erin':'Marksman','Errol':'Warrior','Bonnie':'Marksman','Airi':'Assassin','Lu_Bu':'Warrior','Laville':'Marksman','Maloch':'Warrior','Paine':'Marksman',
+        'Preyta':'Mage','Ilumia':'Mage','Kaine':'Assassin','Veres':'Warrior','Aleister':'Mage','Krizzix':'Support','Lumburr':'Support','Veera':'Mage','Teeri':'Marksman',
+        'Omega':'Assassin','Lorion':'Mage','Kahlii':'Mage','Diao_Chan':'Mage','Bijan':'Warrior','Arum':'Tank','Roxie':'Marksman','Slimz':'Marksman','The_Flash':'Assassin',
+        'Allain':'Marksman','Amily':'Warrior','Xeniel':'Support','Tachi':'Warrior','Zanis':'Warrior','Celica':'Mage','Moren':'Marksman','Mortos':'Warrior','Astrid':'Marksman',
+        'Dextra':'Marksman','Wiro':'Assassin','Groth':'Warrior','Lindis':'Marksman','Jinna':'Mage','Ishar':'Mage','Roxie':'Marksman'
+      };
+
+  let lastSelected = null;
+
+      // DOM helpers
+      const byId = id=>document.getElementById(id);
+      const heroContainer = byId('heroContainer');
+      const selName = byId('selName');
+
+      function getRole(h){ return ROLE_MAP[h.id] || ROLE_MAP[h.name] || 'Other'; }
+
+      function renderHeroGrid(){
+        const q = byId('search').value.trim().toLowerCase();
+        const roleFilter = byId('filterRole').value;
+        heroContainer.innerHTML='';
+        HEROES.filter(h=>{
+          if (q && !(h.name.toLowerCase().includes(q) || h.id.toLowerCase().includes(q))) return false;
+          if (roleFilter && getRole(h) !== roleFilter) return false;
+          return true;
+        }).forEach(h=>{
+          const el = document.createElement('div');
+          el.className = 'hero' + (lastSelected===h.id? ' selected':'');
+
+          // image container
+          const imgWrap = document.createElement('div');
+          imgWrap.style.height = '64px';
+          imgWrap.style.display = 'flex';
+          imgWrap.style.alignItems = 'center';
+          imgWrap.style.justifyContent = 'center';
+          imgWrap.style.width = '100%';
+
+          if (h.img){
+            const imgEl = document.createElement('img');
+            // try local image first (drawban_images folder next to this HTML), then fallback to remote
+            const localPath = `drawban_images/${h.id}.webp`;
+            imgEl.src = localPath;
+            imgEl.alt = h.name;
+            imgEl.loading = 'lazy';
+            imgEl.dataset.remote = h.img;
+            imgEl.onerror = ()=>{
+              // if local failed, try remote; if remote already tried, show name
+              if (!imgEl.dataset.triedRemote){ imgEl.dataset.triedRemote = '1'; imgEl.src = imgEl.dataset.remote; return; }
+              imgEl.remove();
+              const ph = document.createElement('div');
+              ph.textContent = h.name;
+              ph.className = 'small muted';
+              imgWrap.appendChild(ph);
+            };
+            imgWrap.appendChild(imgEl);
+          } else {
+            const ph = document.createElement('div');
+            ph.textContent = h.name;
+            ph.className = 'small muted';
+            imgWrap.appendChild(ph);
+          }
+
+          const nameDiv = document.createElement('div');
+          nameDiv.style.marginTop = '6px';
+          nameDiv.textContent = h.name;
+          // role badge
+          const role = getRole(h);
+          const badge = document.createElement('div'); badge.textContent = role; badge.className='small muted'; badge.style.marginTop='4px'; badge.style.fontSize='11px';
+
+          el.appendChild(imgWrap);
+          el.appendChild(nameDiv);
+
+          // disable selection when hero is used in earlier games in global mode
+          const usedInPrev = state.usedGlobal.has(h.id);
+          const curGame = state.games[state.currentGame-1] || {picks:{A:[],B:[]}, bans:{A:[],B:[]}};
+          const usedInThis = (curGame.picks.A.includes(h.id) || curGame.picks.B.includes(h.id) || curGame.bans.A.includes(h.id) || curGame.bans.B.includes(h.id));
+          // Determine disabling rules:
+          // - If global mode off: allow selection
+          // - If global mode on and currentGame is 2 or 3: heroes used in previous games are disabled only for Team A (our team)
+          // - Otherwise (global and not 2/3): heroes used in previous games are disabled for both teams
+          const turn = byId('turnSelect').value;
+          let disabled = false;
+          if (state.mode === 'global' && usedInPrev && !usedInThis){
+            if (state.currentGame === 2 || state.currentGame === 3){
+              // disable only for Team A
+              if (turn === 'A') disabled = true;
+            } else {
+              disabled = true;
+            }
+          }
+          if (disabled){ el.style.opacity = '0.35'; el.style.cursor = 'not-allowed'; el.title = 'ถูกใช้ในเกมก่อนหน้า (global)'; }
+          else { el.onclick = ()=>{ lastSelected = h.id; selName.textContent = h.name; renderHeroGrid(); }; }
+          // append badge
+          el.appendChild(badge);
+          heroContainer.appendChild(el);
+        });
+      }
+
+      function doPickOrBan(type){
+        if (!lastSelected) return alert('ยังไม่ได้เลือกฮีโร่');
+        const team = byId('turnSelect').value;
+        const gidx = state.currentGame - 1;
+        const game = state.games[gidx];
+        // prevent duplicates within this game
+        if (game.picks.A.includes(lastSelected) || game.picks.B.includes(lastSelected)) return alert('ฮีโร่ถูก pick ไปแล้วในเกมนี้');
+        if (game.bans.A.includes(lastSelected) || game.bans.B.includes(lastSelected)) return alert('ฮีโร่ถูก ban ไปแล้วในเกมนี้');
+        // enforce limits
+        if (type === 'pick' && game.picks[team].length >= 5) return alert('ทีมนี้เลือกครบ 5 ตัวแล้ว');
+        if (type === 'ban' && game.bans[team].length >= 4) return alert('ทีมนี้แบนครบ 4 ตัวแล้ว');
+
+        if (type==='pick'){
+          game.picks[team].push(lastSelected);
+          state.history.push({type:'pick',team,hero:lastSelected,game:state.currentGame});
+        } else {
+          game.bans[team].push(lastSelected);
+          state.history.push({type:'ban',team,hero:lastSelected,game:state.currentGame});
+        }
+
+  // recompute usedGlobal (heroes used in previous games)
+        recomputeUsedGlobal();
+
+        lastSelected = null; selName.textContent='—'; renderState(); renderHeroGrid();
+        // if auto-next enabled and both teams reached 5 picks, advance game
+        tryAutoAdvance();
+      }
+
+      function renderState(){
+        const aP = byId('teamA_picks'); const bP = byId('teamB_picks');
+        const aB = byId('teamA_bans'); const bB = byId('teamB_bans');
+        aP.innerHTML=''; bP.innerHTML=''; aB.innerHTML=''; bB.innerHTML='';
+        const game = state.games[state.currentGame-1];
+        if (!game) return;
+        // show up to 5 pick slots per team
+        for(let i=0;i<5;i++){
+          const idA = game.picks.A[i];
+          const elA = idA ? makeMini(idA) : (function(){const e=document.createElement('div'); e.className='slot'; e.style.opacity='0.25'; e.textContent='(empty)'; return e;})();
+          aP.appendChild(elA);
+          const idB = game.picks.B[i];
+          const elB = idB ? makeMini(idB) : (function(){const e=document.createElement('div'); e.className='slot'; e.style.opacity='0.25'; e.textContent='(empty)'; return e;})();
+          bP.appendChild(elB);
+        }
+        // show up to 4 ban slots per team
+        for(let i=0;i<4;i++){
+          const bidA = game.bans.A[i];
+          const beA = bidA ? makeMini(bidA) : (function(){const e=document.createElement('div'); e.className='slot'; e.style.opacity='0.25'; e.textContent='(empty ban)'; return e;})();
+          aB.appendChild(beA);
+          const bidB = game.bans.B[i];
+          const beB = bidB ? makeMini(bidB) : (function(){const e=document.createElement('div'); e.className='slot'; e.style.opacity='0.25'; e.textContent='(empty ban)'; return e;})();
+          bB.appendChild(beB);
+        }
+      }
+
+      function makeMini(id){
+        const h = HEROES.find(x=>x.id===id) || {name:id};
+        const el = document.createElement('div'); el.className='slot';
+        el.style.display='flex'; el.style.flexDirection='column'; el.style.alignItems='center'; el.style.justifyContent='center';
+        const img = document.createElement('img'); img.src = h.img || ''; img.alt = h.name; img.style.width='56px'; img.style.height='56px'; img.style.objectFit='contain'; img.onerror = ()=>img.remove();
+        const nm = document.createElement('div'); nm.textContent = h.name; nm.style.fontSize='12px'; nm.style.marginTop='6px'; nm.className='small muted';
+        if (h.img) el.appendChild(img);
+        el.appendChild(nm);
+        return el;
+      }
+
+      byId('pickBtn').onclick = ()=>doPickOrBan('pick');
+      byId('banBtn').onclick = ()=>doPickOrBan('ban');
+      byId('undo').onclick = ()=>{
+        const last = state.history.pop(); if (!last) return alert('ไม่มีรายการให้ย้อนกลับ');
+        const g = state.games[last.game-1];
+        if (!g) return;
+        if (last.type==='pick'){
+          g.picks[last.team] = g.picks[last.team].filter(x=>x!==last.hero);
+        } else {
+          g.bans[last.team] = g.bans[last.team].filter(x=>x!==last.hero);
+        }
+        recomputeUsedGlobal();
+        renderState(); renderHeroGrid();
+      };
+
+      byId('reset').onclick = ()=>{
+        if (!confirm('ต้องการล้างทั้งหมดไหม?')) return;
+        state.games = Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}})); state.history=[]; state.usedGlobal = new Set(); renderState(); renderHeroGrid();
+      };
+
+      byId('saveLocal').onclick = ()=>{
+        const payload = {games:state.games, history:state.history};
+        localStorage.setItem('draft_demo', JSON.stringify(payload)); alert('บันทึกลงเครื่องเรียบร้อย');
+      };
+
+      byId('loadLocal').onclick = ()=>{
+        const raw = localStorage.getItem('draft_demo'); if (!raw) return alert('ไม่พบข้อมูลใน localStorage');
+        try{ const obj = JSON.parse(raw); state.games = obj.games || Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}})); state.history = obj.history || []; recomputeUsedGlobal(); renderState(); renderHeroGrid(); }catch(e){ alert('ข้อมูลไม่ถูกต้อง'); }
+      };
+
+  byId('exportJson').onclick = ()=>{ byId('jsonArea').value = JSON.stringify({games:state.games,history:state.history}, null, 2); };
+  byId('importJson').onclick = ()=>{ try{ const obj = JSON.parse(byId('jsonArea').value); state.games = obj.games || state.games; state.history = obj.history || state.history; recomputeUsedGlobal(); renderState(); renderHeroGrid(); }catch(e){ alert('JSON ไม่ถูกต้อง'); } };
+
+      // search input
+      byId('search').oninput = ()=>renderHeroGrid();
+
+      // role filter
+      byId('filterRole').onchange = ()=>renderHeroGrid();
+
+      // game selector and global mode handlers
+      function recomputeUsedGlobal(){
+        // usedGlobal = heroes used in games before currentGame
+        const set = new Set();
+        for(let i=0;i<state.currentGame-1;i++){
+          const g = state.games[i]; if (!g) continue;
+          [...g.picks.A,...g.picks.B,...g.bans.A,...g.bans.B].forEach(h=>set.add(h));
+        }
+        state.usedGlobal = set;
+      }
+
+      function initGamesAndUI(){
+        if (!state.games || state.games.length < 7) state.games = Array.from({length:7},()=>({picks:{A:[],B:[]},bans:{A:[],B:[]}}));
+        const sel = byId('gameSelect'); sel.innerHTML = '';
+        for(let i=1;i<=7;i++){ const o = document.createElement('option'); o.value = String(i); o.textContent = 'Game ' + i; sel.appendChild(o); }
+        sel.value = String(state.currentGame);
+        sel.onchange = ()=>{ state.currentGame = Number(sel.value); recomputeUsedGlobal(); renderState(); renderHeroGrid(); };
+
+        const chk = byId('modeGlobal'); chk.checked = (state.mode === 'global');
+        chk.onchange = ()=>{ state.mode = chk.checked ? 'global' : 'normal'; recomputeUsedGlobal(); renderHeroGrid(); };
+
+        recomputeUsedGlobal();
+      }
+
+      // auto-advance logic
+      function tryAutoAdvance(){
+        if (!byId('autoNext').checked) return;
+        const g = state.games[state.currentGame-1];
+        if (!g) return;
+        // advance when each team has >=5 picks (typical 5 picks per team)
+        const picksCount = (g.picks.A.length + g.picks.B.length);
+        if (picksCount >= 10){
+          // advance to next if possible
+          if (state.currentGame < 7){ state.currentGame++; byId('gameSelect').value = String(state.currentGame); recomputeUsedGlobal(); renderState(); renderHeroGrid(); }
+        }
+      }
+
+      // Next Game button
+      byId('nextGame').onclick = ()=>{
+        if (state.currentGame < 7){ state.currentGame++; byId('gameSelect').value = String(state.currentGame); recomputeUsedGlobal(); renderState(); renderHeroGrid(); }
+      };
+
+      // Download images button: create and show the PS1 script location and instructions
+      byId('downloadImages').onclick = ()=>{
+        const msg = 'ผมได้สร้างไฟล์ download_images.ps1 บน Desktop\ndrawban_images จะถูกสร้างบน Desktop\nรัน PowerShell (as needed) แล้วใช้:\n    .\\download_images.ps1\nหลังจากดาวน์โหลดเสร็จให้รีเฟรชหน้าเว็บเพื่อโหลดภาพจากโฟลเดอร์ drawban_images.';
+        alert(msg);
+        // open the folder? (can't reliably open file explorer from here). Just inform user.
+      };
+
+      // Export CSV
+      function exportCSV(){
+        const rows = ['Game,Team,Type,Slot,Hero'];
+        state.games.forEach((g,gi)=>{
+          const gameNum = gi+1;
+          ['A','B'].forEach(team=>{
+            g.picks[team].forEach((h,idx)=> rows.push(`${gameNum},${team},P,${idx+1},${h}`));
+            g.bans[team].forEach((h,idx)=> rows.push(`${gameNum},${team},B,${idx+1},${h}`));
+          });
+        });
+        return rows.join('\n');
+      }
+      const csvBtn = document.createElement('button'); csvBtn.textContent='Export CSV'; csvBtn.style.marginLeft='6px'; csvBtn.onclick = ()=>{ byId('jsonArea').value = exportCSV(); };
+      document.querySelector('aside.card').appendChild(csvBtn);
+
+      // init
+      initGamesAndUI(); renderHeroGrid(); renderState();
+    </script>
+  </body>
+</html>
